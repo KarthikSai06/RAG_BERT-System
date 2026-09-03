@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+.env/
+env/
+
+# Model weights (large files — download separately)
+models/bert_classifier/*.bin
+models/bert_classifier/*.safetensors
+
+# FAISS index (rebuilt from raw_docs)
+data/faiss_index/*.faiss
+
+# Data generated at runtime
+data/chunks/
+data/classifier_data/
+
+# Streamlit
+.streamlit/
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Training artefacts
+results/
+runs/
+wandb/
