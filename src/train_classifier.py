@@ -1,3 +1,6 @@
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd
 import torch
 import config
@@ -20,8 +23,8 @@ def train():
     train_df["label"] = train_df["label"].map(config.LABEL2ID)
     test_df["label"] = test_df["label"].map(config.LABEL2ID)
     
-    train_dataset = Dataset.from_pandas(train_df)
-    test_dataset = Dataset.from_pandas(test_df)
+    train_dataset = Dataset.from_pandas(train_df.reset_index(drop=True))
+    test_dataset = Dataset.from_pandas(test_df.reset_index(drop=True))
     
     tokenizer = BertTokenizer.from_pretrained(config.BERT_BASE_MODEL)
     
@@ -48,10 +51,13 @@ def train():
         num_train_epochs=config.BERT_EPOCHS,
         per_device_train_batch_size=config.BERT_BATCH_SIZE,
         per_device_eval_batch_size=config.BERT_BATCH_SIZE,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         save_strategy="epoch",
         learning_rate=config.BERT_LR,
         load_best_model_at_end=True,
+        metric_for_best_model="macro_f1",
+        greater_is_better=True,
+        logging_steps=10,
     )
     
     trainer = Trainer(

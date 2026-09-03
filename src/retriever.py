@@ -1,3 +1,6 @@
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 import faiss
 import numpy as np
@@ -23,15 +26,15 @@ class Retriever:
         if self.index is None:
             return []
             
-        q_emb = self.model.encode([query], convert_to_numpy=True)
+        q_emb = self.model.encode([query], convert_to_numpy=True).astype('float32')
         faiss.normalize_L2(q_emb)
         
         scores, indices = self.index.search(q_emb, k)
         
         results = []
         for i, idx in enumerate(indices[0]):
-            if idx < len(self.chunks):
-                chunk = self.chunks[idx]
+            if 0 <= idx < len(self.chunks):
+                chunk = self.chunks[idx].copy()  # avoid mutating cached dict
                 chunk["score"] = float(scores[0][i])
                 results.append(chunk)
                 

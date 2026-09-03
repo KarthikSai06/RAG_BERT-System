@@ -1,6 +1,20 @@
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 import config
+
+try:
+    import pdfplumber
+    PDF_SUPPORT = True
+except ImportError:
+    PDF_SUPPORT = False
+
+try:
+    from docx import Document as DocxDocument
+    DOCX_SUPPORT = True
+except ImportError:
+    DOCX_SUPPORT = False
 
 def chunk_text(text, chunk_size, overlap):
     words = text.split()
@@ -26,18 +40,31 @@ def ingest_documents():
         if filename.endswith(".txt"):
             with open(file_path, "r", encoding="utf-8") as f:
                 text = f.read()
+        elif filename.endswith(".pdf"):
+            if not PDF_SUPPORT:
+                print("pdfplumber not installed. Skipping:", filename)
+                continue
+            with pdfplumber.open(file_path) as pdf:
+                text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        elif filename.endswith(".docx"):
+            if not DOCX_SUPPORT:
+                print("python-docx not installed. Skipping:", filename)
+                continue
+            doc = DocxDocument(file_path)
+            text = "\n".join(para.text for para in doc.paragraphs if para.text.strip())
         else:
-            print(f"Unsupported format for now: {filename}")
+            print(f"Unsupported format, skipping: {filename}")
             continue
             
         chunks = chunk_text(text, config.CHUNK_SIZE, config.CHUNK_OVERLAP)
         for chunk in chunks:
-            all_chunks.append({
-                "chunk_id": chunk_id,
-                "source_file": filename,
-                "text": chunk
-            })
-            chunk_id += 1
+            if chunk.strip():  # skip empty/whitespace chunks
+                all_chunks.append({
+                    "chunk_id": chunk_id,
+                    "source_file": filename,
+                    "text": chunk.strip()
+                })
+                chunk_id += 1
             
     print(f"Generated {len(all_chunks)} chunks.")
     

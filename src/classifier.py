@@ -1,3 +1,6 @@
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 import config
 from transformers import BertTokenizer, BertForSequenceClassification
@@ -22,12 +25,33 @@ class QueryClassifier:
         self.model.eval()
         
     def predict(self, query):
-        inputs = self.tokenizer(query, return_tensors="pt", padding=True, truncation=True, max_length=config.BERT_MAX_LEN)
+        inputs = self.tokenizer(
+            query, return_tensors="pt", padding=True,
+            truncation=True, max_length=config.BERT_MAX_LEN
+        )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         
         with torch.no_grad():
             outputs = self.model(**inputs)
             logits = outputs.logits
-            pred_id = torch.argmax(logits, dim=1).item()
+            probs = torch.softmax(logits, dim=1)
+            pred_id = torch.argmax(probs, dim=1).item()
+            confidence = probs[0][pred_id].item()
             
         return config.ID2LABEL[pred_id]
+
+    def predict_with_confidence(self, query):
+        """Returns (label, confidence_score) tuple."""
+        inputs = self.tokenizer(
+            query, return_tensors="pt", padding=True,
+            truncation=True, max_length=config.BERT_MAX_LEN
+        )
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            probs = torch.softmax(outputs.logits, dim=1)
+            pred_id = torch.argmax(probs, dim=1).item()
+            confidence = probs[0][pred_id].item()
+            
+        return config.ID2LABEL[pred_id], round(confidence, 4)

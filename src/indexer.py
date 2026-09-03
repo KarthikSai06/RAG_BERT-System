@@ -1,3 +1,6 @@
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 import faiss
 import numpy as np
@@ -17,7 +20,7 @@ def build_index():
     texts = [chunk["text"] for chunk in chunks]
     
     print("Generating embeddings...")
-    embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=True)
+    embeddings = model.encode(texts, convert_to_numpy=True, show_progress_bar=True).astype('float32')
     
     # Normalize for cosine similarity
     faiss.normalize_L2(embeddings)
