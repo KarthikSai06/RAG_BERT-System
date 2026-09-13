@@ -90,6 +90,16 @@ python src/indexer.py                 # Build FAISS vector index
 streamlit run app.py
 ```
 
+If model weights are not downloaded yet, the application still starts in
+lightweight mode: domain classification uses a conservative keyword guard,
+retrieval uses the generated chunks, and answers quote the best matching
+passage. Install the dependencies and run the setup commands to enable the
+BERT, Sentence-BERT/FAISS, and Mistral stages.
+
+The app does not download the 7B Mistral model by default because it requires
+substantial storage and memory, especially on CPU-only machines. To enable it
+explicitly, set `RAG_ENABLE_LLM=1` before launching Streamlit.
+
 ### 5. Google Colab
 
 Open `notebooks/colab_runner.ipynb` and run all cells. A public URL will be printed via localtunnel.

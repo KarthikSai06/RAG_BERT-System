@@ -15,6 +15,8 @@ class RAGPipeline:
         self.generator = Generator() if init_generator else None
         
     def run(self, query):
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("query must be a non-empty string")
         result = {
             "query": query,
             "label": None,
@@ -52,7 +54,11 @@ class RAGPipeline:
             result["answer"] = answer
             result["timings"]["generation_ms"] = round((t5 - t4) * 1000, 2)
         else:
-            result["answer"] = "Generator not initialized. Retrieved context: " + " | ".join([s['text'] for s in sources])
+            result["answer"] = (
+                sources[0]["text"]
+                if sources
+                else "I don't have that information in my documents."
+            )
             
         return result
 

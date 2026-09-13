@@ -29,6 +29,7 @@ CHUNK_OVERLAP   = 50     # overlap tokens between consecutive chunks (~20%)
 # ── Retrieval ─────────────────────────────────────────────────────────────────
 EMBED_MODEL     = "all-MiniLM-L6-v2"   # SentenceTransformer model
 TOP_K           = 3                    # passages retrieved per query
+MIN_RETRIEVAL_SCORE = 0.05             # minimum cosine/lexical score to use as context
 
 # ── BERT Classifier ───────────────────────────────────────────────────────────
 BERT_BASE_MODEL = "bert-base-uncased"
@@ -49,6 +50,8 @@ LLM_MODEL_ID    = "mistralai/Mistral-7B-Instruct-v0.2"
 USE_4BIT        = True       # bitsandbytes 4-bit quantization
 USE_GPU         = True       # set False to force CPU (slow but no VRAM needed)
 MAX_NEW_TOKENS  = 512
+ALLOW_LIGHTWEIGHT_FALLBACK = True      # keep the demo usable without downloaded ML models
+ENABLE_LLM      = os.getenv("RAG_ENABLE_LLM", "0").lower() in ("1", "true", "yes")
 
 # ── Fallback response ─────────────────────────────────────────────────────────
 FALLBACK_MSG = (

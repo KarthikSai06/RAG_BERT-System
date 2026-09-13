@@ -17,6 +17,10 @@ except ImportError:
     DOCX_SUPPORT = False
 
 def chunk_text(text, chunk_size, overlap):
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be greater than zero")
+    if overlap < 0 or overlap >= chunk_size:
+        raise ValueError("overlap must be between zero and chunk_size - 1")
     words = text.split()
     chunks = []
     i = 0
@@ -37,16 +41,17 @@ def ingest_documents():
             continue
             
         text = ""
-        if filename.endswith(".txt"):
+        extension = os.path.splitext(filename)[1].lower()
+        if extension == ".txt":
             with open(file_path, "r", encoding="utf-8") as f:
                 text = f.read()
-        elif filename.endswith(".pdf"):
+        elif extension == ".pdf":
             if not PDF_SUPPORT:
                 print("pdfplumber not installed. Skipping:", filename)
                 continue
             with pdfplumber.open(file_path) as pdf:
                 text = "\n".join(page.extract_text() or "" for page in pdf.pages)
-        elif filename.endswith(".docx"):
+        elif extension == ".docx":
             if not DOCX_SUPPORT:
                 print("python-docx not installed. Skipping:", filename)
                 continue

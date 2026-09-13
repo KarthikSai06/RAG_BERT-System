@@ -2,12 +2,18 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
-import faiss
-import numpy as np
 import config
-from sentence_transformers import SentenceTransformer
 
 def build_index():
+    try:
+        import faiss
+        from sentence_transformers import SentenceTransformer
+    except ImportError as exc:
+        raise RuntimeError(
+            "Indexing requires faiss-cpu and sentence-transformers. "
+            "Install requirements.txt first."
+        ) from exc
+
     print(f"Loading embedding model: {config.EMBED_MODEL}")
     model = SentenceTransformer(config.EMBED_MODEL)
     
@@ -17,6 +23,8 @@ def build_index():
             chunks.append(json.loads(line))
             
     print(f"Loaded {len(chunks)} chunks.")
+    if not chunks:
+        raise ValueError("No document chunks found. Add documents and run ingest.py first.")
     texts = [chunk["text"] for chunk in chunks]
     
     print("Generating embeddings...")

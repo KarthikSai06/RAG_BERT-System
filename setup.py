@@ -11,19 +11,24 @@ Usage:
     python setup.py
 """
 
-import subprocess
 import sys
+import subprocess
+from pathlib import Path
 
-def run(cmd):
+ROOT = Path(__file__).resolve().parent
+
+def run(script):
     print(f"\n{'='*60}")
-    print(f"Running: {cmd}")
+    print(f"Running: {script}")
     print('='*60)
-    result = subprocess.run(cmd, shell=True, check=True)
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "src" / script)],
+        cwd=str(ROOT),
+        check=True,
+    )
     return result
 
 if __name__ == "__main__":
-    run("python src/ingest.py")
-    run("python src/generate_synthetic_data.py")
-    run("python src/train_classifier.py")
-    run("python src/indexer.py")
-    print("\n✅ Setup complete! Run: streamlit run app.py")
+    for script in ("ingest.py", "generate_synthetic_data.py", "train_classifier.py", "indexer.py"):
+        run(script)
+    print("\nSetup complete! Run: streamlit run app.py")
