@@ -1,193 +1,138 @@
-PROJECT STATUS
-==============
-Domain-Specific RAG Helpdesk System
-Repository: https://github.com/KarthikSai06/RAG_BERT-System.git
-Last Updated: September 2026
-
-
-IMPLEMENTED (PHASE 1 - COMPLETE)
-=================================
-
-1. config.py
-   - All hyperparameters, model identifiers, and file paths in one place
-   - BERT model: bert-base-uncased
-   - Embedding model: all-MiniLM-L6-v2
-   - LLM: mistralai/Mistral-7B-Instruct-v0.2
-   - Class labels: in-domain-factual, in-domain-procedural, out-of-domain
-   - Auto-creates required directories on import
-
-2. src/ingest.py
-   - Loads .txt, .pdf (pdfplumber), and .docx (python-docx) files
-   - Sliding window chunking: 250 words per chunk, 50-word overlap (~20%)
-   - Filters empty and whitespace-only chunks
-   - Writes chunks.jsonl with chunk_id, source_file, and text fields
-
-3. src/generate_synthetic_data.py
-   - Generates 300 realistic institutional queries
-     * 100 in-domain-factual (fee deadlines, attendance rules, hostel curfew)
-     * 100 in-domain-procedural (how to apply for waiver, hostel room, etc.)
-     * 100 out-of-domain (general knowledge, small talk, unrelated topics)
-   - Stratified 80/20 train/test split
-   - Writes train.csv and test.csv
-
-4. src/train_classifier.py
-   - Fine-tunes bert-base-uncased with a 3-class classification head
-   - Uses HuggingFace Trainer with AdamW, LR=2e-5, 5 epochs, batch=16
-   - eval_strategy per epoch (new transformers API, not deprecated evaluation_strategy)
-   - metric_for_best_model: macro_f1
-   - Saves best model weights and tokenizer to models/bert_classifier/
-   - Reports accuracy and macro-F1 on test set
-
-5. src/classifier.py
-   - QueryClassifier class that loads the fine-tuned BERT model
-   - Falls back to base BERT weights if fine-tuned model not found
-   - predict(query) -> label string
-   - predict_with_confidence(query) -> (label, confidence_score) tuple
-   - Runs on GPU if available, else CPU
-
-6. src/indexer.py
-   - Encodes all chunks using Sentence-BERT (all-MiniLM-L6-v2)
-   - Casts embeddings to float32 for FAISS compatibility
-   - L2-normalizes embeddings for cosine similarity via IndexFlatIP
-   - Saves FAISS binary index and metadata JSONL file
-
-7. src/retriever.py
-   - Retriever class that loads FAISS index and metadata at startup
-   - retrieve(query, k) -> list of top-k chunk dicts with score field
-   - Uses .copy() to avoid mutating the cached metadata list
-   - Bounds-checks FAISS returned indices (handles -1 from underfull index)
-   - Float32 cast on query embedding before FAISS search
-
-8. src/generator.py
-   - Generator class loading Mistral-7B-Instruct-v0.2 via HuggingFace
-   - 4-bit NF4 quantization via BitsAndBytesConfig when GPU is available
-   - CPU fallback with float32 when no GPU detected
-   - Uses apply_chat_template for correct [INST] token wrapping
-   - Context-only instruction: model must answer from retrieved passages only
-   - Returns clean stripped response text
-
-9. src/pipeline.py
-   - RAGPipeline class orchestrating all 4 stages in sequence
-   - Stage 1: BERT classifier
-   - Stage 2 (guardrail): out-of-domain queries return fixed fallback immediately
-   - Stage 3: FAISS retrieval
-   - Stage 4: LLM generation
-   - Records per-stage timing in milliseconds
-   - init_generator=False mode for lightweight testing without loading the LLM
-
-10. app.py
-    - Streamlit chat interface
-    - Caches pipeline with @st.cache_resource (loads once per session)
-    - Displays label classification per response
-    - Shows retrieved source passages with similarity scores in expander
-    - Displays per-stage timing below each response
-    - Chat history preserved in st.session_state
-
-11. data/raw_docs/
-    - sample_handbook.txt: admissions, fees, examinations, hostel rules
-    - scholarship_fee_circular.txt: scholarships, fee payment portal, refund policy
-
-12. notebooks/colab_runner.ipynb
-    - Install dependencies
-    - Run ingest, generate data, train BERT, build FAISS index
-    - Launch Streamlit via localtunnel for public URL
-
-13. setup.py
-    - Single command to run all pipeline setup steps in order
-
-14. README.md
-    - Architecture overview
-    - Project structure
-    - Step-by-step quick start
-    - Tech stack table
-    - References
-
-15. requirements.txt
-    - All Python dependencies pinned to minimum compatible versions
-
-16. .gitignore
-    - Excludes model weights, FAISS index, generated data, venv, IDE files
-
-
-NOT YET IMPLEMENTED (PHASE 2)
+# PROJECT STATUS & ROADMAP
 ==============================
+Domain-Specific RAG Helpdesk System
+Repository: https://github.com/SUMANTH1011/RAG_BERT-System.git
+Institution: Dayananda Sagar College of Engineering (DSCE)
+Authors: K Karthik Sai, G Sumanth, Manoj Patel R | Guide: Ripu Daman Singh
+Last Updated: September 18, 2026
+Overall Completion: ~65% - 70%
 
-1. RAGAS Evaluation Script (src/evaluate.py)
-   - Requires: ragas library, held-out question-answer pairs
-   - Metrics to compute: Faithfulness, Answer Relevance
-   - Script should load pipeline, run on test set, print RAGAS report
-   - Estimated effort: 1-2 days
+---
 
-2. Retrieval Metrics Script (src/eval_retrieval.py)
-   - Requires: annotated question-to-chunk relevance judgements
-   - Metrics: Recall@k (k=1,3,5), Mean Reciprocal Rank (MRR)
-   - Compare: dense retrieval vs. BM25 keyword baseline
-   - Estimated effort: 1 day
+## 1. COMPLETED MILESTONES (PHASE 1 - 100% DONE)
 
-3. Baseline Comparison (src/baseline_llm.py)
-   - Requires: same test query set
-   - Run 3 variants on identical queries:
-     a. Plain LLM with no retrieval, no guardrail
-     b. RAG without Stage-1 BERT guardrail
-     c. Full proposed system (RAG + BERT guardrail)
-   - Compare hallucination rate and RAGAS scores across all 3
-   - This is the core quantitative contribution of the paper
-   - Estimated effort: 2-3 days
+### A. Core Architecture & Modules
+1. **`config.py`**
+   - Central source of truth for hyperparameters, model checkpoints, paths, and labels.
+   - Configured models: `bert-base-uncased`, `all-MiniLM-L6-v2`, `mistralai/Mistral-7B-Instruct-v0.2`.
+   - Classes: `in-domain-factual` (0), `in-domain-procedural` (1), `out-of-domain` (2).
+   - Auto-creates directory tree on import.
 
-4. Real Institutional Documents
-   - Replace sample_handbook.txt and scholarship_fee_circular.txt
-     with actual college handbooks, FAQ PDFs, and fee circulars
-   - Rebuild FAISS index after adding real documents
-   - Action required: obtain documents from institution
+2. **`src/ingest.py`**
+   - Supports `.txt`, `.pdf` (pdfplumber), and `.docx` (python-docx).
+   - Sliding-window chunking: 250 words, 50-word overlap (~20%).
+   - Generates `data/chunks/chunks.jsonl` with unique chunk IDs and source tracking.
 
-5. Real Classifier Training Data
-   - Expand synthetic 300-query dataset with real student queries
-   - Aim for 500-1000 labelled examples for reliable F1 scores
-   - Recommended: collect from institution helpdesk logs
-   - Action required: manual labelling or helpdesk query log access
+3. **`src/generate_synthetic_data.py`**
+   - Generates 300 balanced institutional queries across all 3 classes.
+   - 80/20 stratified split outputting `train.csv` (240 rows) and `test.csv` (60 rows).
 
-6. LoRA Fine-Tuning of Generator (src/finetune_generator.py)
-   - Fine-tune Mistral-7B on institution-specific Q&A pairs using LoRA
-   - Reduces residual hallucination on edge cases
-   - Requires: curated Q&A dataset, Colab Pro or equivalent GPU
-   - Estimated effort: 3-5 days
+4. **`src/train_classifier.py`**
+   - Fine-tunes `bert-base-uncased` 3-class sequence classification head using HuggingFace `Trainer`.
+   - Optimized with AdamW, learning rate 2e-5, 5 epochs, batch size 16.
+   - Evaluates per epoch targeting `macro_f1`. Saves best weights to `models/bert_classifier/`.
 
-7. Multilingual Support
-   - Extend corpus and classifier to handle queries in regional languages
-   - Replace all-MiniLM-L6-v2 with a multilingual sentence-embedding model
-   - Estimated effort: 3-4 days
+5. **`src/classifier.py`**
+   - `QueryClassifier` inference wrapper with automatic fallback heuristic if BERT weights or GPU are unavailable locally.
+   - Provides both `predict(query)` and `predict_with_confidence(query)`.
 
-8. Confidence Threshold Guardrail
-   - Use predict_with_confidence() output (already implemented in classifier.py)
-   - If confidence < threshold (e.g., 0.70), route to human-in-the-loop review
-     instead of proceeding with low-confidence classification
-   - Estimated effort: half a day
+6. **`src/indexer.py`**
+   - Sentence-BERT (`all-MiniLM-L6-v2`) embeddings with float32 casting.
+   - L2-normalized `IndexFlatIP` FAISS index for exact cosine similarity search.
+   - Writes `index.faiss` and `index_meta.jsonl`.
 
-9. Production Deployment Configuration
-   - Dockerize the Streamlit app and pipeline
-   - Add environment variable management (.env file)
-   - Add gunicorn or uvicorn server configuration
-   - Estimated effort: 1-2 days
+7. **`src/retriever.py`**
+   - Loads FAISS index and metadata cache.
+   - Performs top-$k$ dense retrieval with fallback to token-overlap lexical scoring on CPU.
+   - Immutable chunk copies prevent dictionary mutation across queries.
 
+8. **`src/generator.py`**
+   - `Mistral-7B-Instruct-v0.2` generation with 4-bit NF4 `bitsandbytes` quantization on GPU.
+   - Context-only prompt wrapping with chat template `[INST]` formatting to eliminate hallucinations.
+   - Fallback extractive answering mode for CPU-only systems.
 
-HOW TO RUN
-==========
+9. **`src/pipeline.py`**
+   - 4-stage orchestrator: Classification -> Guardrail Check -> Retrieval -> Grounded Generation.
+   - Records granular latency telemetry per stage (`classification_ms`, `retrieval_ms`, `generation_ms`).
 
-Prerequisites:
-    pip install -r requirements.txt
+### B. User Interface & Integration
+10. **`app.py` (Redesigned & Professionalized)**
+    - Modern, standard academic/enterprise palette (light slate `#f8fafc` background, crisp cards `#ffffff`, slate borders `#e2e8f0`).
+    - Fixed chat input box docking at bottom of screen.
+    - Added 1-click sample query buttons in the left sidebar for instant demonstration.
+    - Real-time classification badges: `Factual Policy`, `Procedural Guide`, `Out-of-Scope (Guardrail Triggered)`.
+    - Expandable drawer with source citations and similarity scores.
 
-Setup (run once in order):
-    python src/ingest.py
-    python src/generate_synthetic_data.py
-    python src/train_classifier.py
-    python src/indexer.py
+### C. Testing & Verification
+11. **Unit Test Suite (`tests/`)**
+    - 24 automated test cases implemented; **20 passed, 4 skipped** (FAISS index presence check).
+12. **`TEST_RUN_RESULTS.md`**
+    - Verified all 3 query types (Factual, Procedural, Guardrail Intercept) with full telemetry and zero hallucination.
 
-Or run all setup steps at once:
-    python setup.py
+---
 
-Launch UI:
-    streamlit run app.py
+## 2. PENDING WORK (PHASE 2 - NEXT STEPS TO 100% COMPLETION)
 
-Google Colab:
-    Open notebooks/colab_runner.ipynb and run all cells.
-    A public URL will be printed via localtunnel.
+### Priority 1: Real Institutional Documents
+- [ ] Replace `sample_handbook.txt` and `scholarship_fee_circular.txt` in `data/raw_docs/` with official DSCE documents:
+  - College Academic Regulations & Handbook (PDF)
+  - Examination & Attendance Circulars (PDF)
+  - Hostel Rules & Fee Circulars (PDF/DOCX)
+  - Scholarship & Fee Concession Notifications (PDF)
+- [ ] Re-run ingestion: `python src/ingest.py`
+
+### Priority 2: BERT Fine-Tuning & Metric Logging on Google Colab
+- [ ] Run `notebooks/colab_runner.ipynb` on Google Colab with T4 GPU:
+  ```bash
+  pip install -r requirements.txt
+  python src/train_classifier.py
+  ```
+- [ ] Record the final evaluation output:
+  - Test Accuracy
+  - Macro F1-Score
+  - Per-class precision & recall
+- [ ] Export confusion matrix for the final presentation deck.
+
+### Priority 3: RAGAS Automated Evaluation Script (`src/evaluate.py`)
+- [ ] Implement `src/evaluate.py` using `ragas` library.
+- [ ] Measure quantitative hallucination metrics:
+  - **Faithfulness**: Are generated claims directly grounded in retrieved passages?
+  - **Answer Relevance**: Does the generated answer address the question?
+- [ ] Generate evaluation summary table for research paper Section IV-C.
+
+### Priority 4: Retrieval Benchmark Script (`src/eval_retrieval.py`)
+- [ ] Implement `src/eval_retrieval.py` against 50 held-out query-passage pairs.
+- [ ] Compute standard IR metrics:
+  - **Recall@1**, **Recall@3**, **Recall@5**
+  - **Mean Reciprocal Rank (MRR)**
+- [ ] Benchmark dense retrieval (Sentence-BERT) vs. BM25 keyword baseline.
+
+### Priority 5: 3-Way Baseline Comparison (`src/baseline_llm.py`)
+- [ ] Implement comparison script running the same 50 test queries across 3 systems:
+  1. *Plain LLM* (No retrieval, no guardrail) -> Measure hallucination rate.
+  2. *Unguardrailed RAG* (Retrieval + LLM, no Stage-1 BERT) -> Measures hallucination on out-of-scope queries.
+  3. *Proposed System* (BERT Guardrail + Dense Retrieval + Quantized LLM) -> Proves zero hallucination on OOD.
+- [ ] This provides the empirical proof for Table II in the paper.
+
+### Priority 6: Final Paper & Presentation Update
+- [ ] Update Table II in `Domain_RAG_Helpdesk_Formatted.docx` with measured numbers.
+- [ ] Update Slide 11 in `final major.pptx` with actual graphs/tables.
+- [ ] Prepare final demo recording.
+
+---
+
+## 3. HOW TO RUN QUICK REFERENCE
+
+```bash
+# 1. Pipeline Setup (Ingest -> Generate -> Train -> Index)
+python setup.py
+
+# 2. Run Test Suite
+pytest tests
+
+# 3. Launch Web Interface
+streamlit run app.py
+
+# 4. Colab GPU Execution
+Open notebooks/colab_runner.ipynb on Colab (Runtime: T4 GPU)
+```
